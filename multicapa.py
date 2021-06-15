@@ -152,6 +152,14 @@ def predict(red, entrada):
 	#return float(outputs[0])
 	return outputs, latente
 
+def mutate_letter(array, prob):
+	for i in range(35):
+		if np.random.sample() < prob:
+			if array[i] == 0:
+				array[i] = 1
+			else:
+				array[i] = 0
+	return array
 
 def main():
 

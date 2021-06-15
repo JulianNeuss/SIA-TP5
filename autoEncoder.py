@@ -28,15 +28,17 @@ def main():
     k = [1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,0,1,0,0,1,1,0,0,0,1,0,1,0,0,1,0,0,1,0]
     l = [0,1,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0]
 
-    autoencoder = crear_red(35,[15,2,15],35)
+    autoencoder = crear_red(35,[25, 7, 2, 7,5],35)
 
-    COTA_ERROR         = 0.005
-    factor_aprendizaje = 0.02
+
+    COTA_ERROR         = 0.1
+    factor_aprendizaje = 0.01
     epochs             = 40000
 
     print("\n\n Entrenar \n\n")
-    espacio_saliente = entrenar_red(autoencoder, Font, factor_aprendizaje, epochs, COTA_ERROR)
+    espacio_saliente = entrenar_red(autoencoder, Font3, factor_aprendizaje, epochs, COTA_ERROR)
     print("\n\n Post entrenar \n\n")
+
 
 
     #Predizer a,b,c,d
