@@ -1,22 +1,28 @@
-from random import seed
-from random import random
+#from random import seed
+#from random import random
+import random
 from math import exp
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 
 def stop():
 	int(input(':>'))
 
 def crear_red(num_entradas, camada_escondida, num_salidas):
 
+	def r():
+		return random.uniform(-0.50, +0.50)
+
 	red = list()
-	capa_escondida = [{'pesos': [random() for i in range(num_entradas + 1)]} for i in range(camada_escondida[0])]
+	capa_escondida = [{'pesos': [r() for i in range(num_entradas + 1)]} for i in range(camada_escondida[0])]
 	red.append(capa_escondida)
 
 	for h in range(len(camada_escondida) - 1):
-		capa_escondida = [{'pesos': [random() for i in range(camada_escondida[h] + 1)]} for i in range(camada_escondida[h + 1])]
+		capa_escondida = [{'pesos': [r() for i in range(camada_escondida[h] + 1)]} for i in range(camada_escondida[h + 1])]
 		red.append(capa_escondida)
 
-	capa_salida = [{'pesos': [random() for i in range(camada_escondida[-1] + 1)]} for i in range(num_salidas)]
+	capa_salida = [{'pesos': [r() for i in range(camada_escondida[-1] + 1)]} for i in range(num_salidas)]
 	red.append(capa_salida)
 	
 	return red
@@ -74,48 +80,60 @@ def propagacion(red, entrada):
 
 def backtracking(red, expected):
 
-	for i in reversed(range(len(red))):
-		#Empezamos por la ultima camada
+	for i in reversed(range(len(red))): #Empezamos por la ultima camada
 
-		layer = red[i]
+		capa = red[i]
 		errors = list()
 
 		if i != len(red)-1:
-			for j in range(len(layer)):
+			for j in range(len(capa)):
 				error = 0.0
-				for neuron in red[i + 1]:
-					error += (neuron['pesos'][j] * neuron['delta'])
+				for neurona in red[i + 1]:
+					error += (neurona['pesos'][j] * neurona['delta'])
 				errors.append(error)
 		else:
 
-			for j in range(len(layer)):
-				neuron = layer[j]
-				errors.append(expected[j] - neuron['salida'])
+			for j in range(len(capa)):
+				neurona = capa[j]
+				errors.append(expected[j] - neurona['salida'])
 				
-		for j in range(len(layer)):
-			neuron = layer[j]
-			neuron['delta'] = errors[j] * tanh_dx_dt(neuron['salida'])
+		for j in range(len(capa)):
+			neurona = capa[j]
+			neurona['delta'] = errors[j] * tanh_dx_dt(neurona['salida'])
 
-
-			
-def actualizar_pesos(red, row, factor_aprendizaje):
+def actualizar_pesos(red, row, factor_aprendizaje, momentum, delta):
 
 	for i in range(len(red)):
-		
-		inputs = row #Tenho que usar isso pq não tenho classificação.
 
-		if i != 0:
-			inputs = [neurona['salida'] for neurona in red[i - 1]]
+		if i != 0: #if not first layer
+			t = [neurona['salida'] for neurona in red[i - 1]]
+		else: #if first layer
+			t = row #init t as the training example attributes
 
-		for neurona in red[i]:
-			for j in range(len(inputs)):
-				neurona['pesos'][j] += factor_aprendizaje * neurona['delta']*inputs[j]
-			neurona['pesos'][-1] += factor_aprendizaje * neurona['delta']
+		#para cada neurona in layer, zip with a length of network variable ot access deltas
+		for neurona, d in zip(red[i], range(0, len(red[i]))):
+
+			for f in range(len(t)):
+				neurona['pesos'][f] += factor_aprendizaje * float(t[f]) * neurona['delta']
+
+				if delta is not None:
+					neurona['pesos'][f] += momentum * delta[d]
+
+				#also update neural bias
+				neurona['pesos'][-1] += factor_aprendizaje * neurona['delta']
 
 
-def entrenar_red(red, set_entrenamiento, factor_aprendizaje, epochs, COTA_ERROR):
+def zerar_salidas(red):
+    for camada in red:
+        for neurona in camada:
+            neurona['salida'] = 0
 
-	latentes = []
+
+MSE = [] 
+epocas = []
+
+def entrenar_red(red, set_entrenamiento, factor_aprendizaje, momentum, epochs, COTA_ERROR):
+
 	espacio_latente = []
 	count_epochs = 0
 	Error_w = 1
@@ -127,6 +145,12 @@ def entrenar_red(red, set_entrenamiento, factor_aprendizaje, epochs, COTA_ERROR)
 		
 		for row in set_entrenamiento:
 
+			first_example = True
+
+			temporal_delta = [neurona['delta'] \
+                for capa in red for neurona in capa] \
+                if not first_example else None
+
 			#Forward propagation
 			salida, el = propagacion(red, row)
 			espacio_latente.append(el)
@@ -136,30 +160,28 @@ def entrenar_red(red, set_entrenamiento, factor_aprendizaje, epochs, COTA_ERROR)
 			Error_w += ((np.linalg.norm(np.array(salida_deseada) - np.array(salida)))**2)*0.5
 
 			backtracking(red, salida_deseada)
-			actualizar_pesos(red, row, factor_aprendizaje)
+			actualizar_pesos(red, row, factor_aprendizaje, momentum, temporal_delta)
+			zerar_salidas(red)
+			first_example = False
 
 		print('[*]epocas={0}, aprendizaje={1}, error={2}'.format(count_epochs, factor_aprendizaje, Error_w))
+
+		#MSE.append(Error_w/len(set_entrenamiento))
+		MSE.append(Error_w)
+		epocas.append(count_epochs)
+
 
 		count_epochs += 1
 		if count_epochs == epochs:
 			break
 
-	return espacio_latente
+	return espacio_latente, MSE, epocas
 
 def predict(red, entrada):
-	outputs,latente = propagacion(red, entrada)
 	#propagacion retorna : inputs y espacio_latente
-	#return float(outputs[0])
+	outputs,latente = propagacion(red, entrada)
 	return outputs, latente
 
-def mutate_letter(array, prob):
-	for i in range(35):
-		if np.random.sample() < prob:
-			if array[i] == 0:
-				array[i] = 1
-			else:
-				array[i] = 0
-	return array
 
 def main():
 
